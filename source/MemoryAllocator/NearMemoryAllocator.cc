@@ -169,7 +169,7 @@ MemBlock *NearMemoryAllocator::allocateNearBlockFromUnusedRegion(uint32_t size, 
   auto unused_arena_size = unused_arena_end_page_addr - unused_arena_first_page_addr + OSMemory::PageSize();
   auto unused_arena_addr = unused_arena_first_page_addr;
 
-  // SYSLOG("AutoPatches: Allocate kNoAccess %p %x", (void *)unused_arena_addr, unused_arena_size);
+  // SYSLOG("Allocate kNoAccess %p %x", (void *)unused_arena_addr, unused_arena_size);
   // if (OSMemory::Allocate(unused_arena_size, kNoAccess, (void *)unused_arena_addr) == nullptr) {
   //   ERROR_LOG("[near memory allocator] allocate fixed page failed %p", unused_arena_addr);
   //   return nullptr;

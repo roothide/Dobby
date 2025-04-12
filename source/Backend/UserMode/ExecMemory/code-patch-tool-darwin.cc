@@ -37,7 +37,11 @@ int mprotect_impl(void *addr, size_t len, int prot) {
 }
 #endif
 
+extern "C" void *_dyld_get_shared_cache_range(size_t *length);
+
 PUBLIC int DobbyCodePatch(void *address, uint8_t *buffer, uint32_t buffer_size) {
+  SYSLOG("DobbyCodePatch: address=%p/%x, buffer=%p, buffer_size=%d", address, *(uint32_t *)address, buffer,
+         buffer_size);
   if (address == nullptr || buffer == nullptr || buffer_size == 0) {
     ERROR_LOG("invalid argument");
     return -1;
@@ -83,8 +87,9 @@ PUBLIC int DobbyCodePatch(void *address, uint8_t *buffer, uint32_t buffer_size) 
       while (1) {
         kr = vm_region_recurse_64(mach_task_self(), (vm_address_t *)&addr, (vm_size_t *)&size, &depth,
                                   (vm_region_recurse_info_t)&region_submap_info, &count);
-        SYSLOG("AutoPatches: kr=%d,%s deep=%d submap=%d %llx=>%llx,%llx", kr, mach_error_string(kr), depth,
-               region_submap_info.is_submap, addr, region_start, size);
+        SYSLOG("vm_region_recurse_64: kr=%d,%s deep=%d submap=%d prot=%x maxprot=%x %llx=>%llx,%llx", kr,
+               mach_error_string(kr), depth, region_submap_info.is_submap, region_submap_info.protection,
+               region_submap_info.max_protection, addr, region_start, size);
 
         if (kr != KERN_SUCCESS)
           return false;
@@ -104,7 +109,7 @@ PUBLIC int DobbyCodePatch(void *address, uint8_t *buffer, uint32_t buffer_size) 
       return -1;
     }
 
-    SYSLOG("AutoPatches: [%p,%d] orig_max_prot=%d, orig_prot=%d, share_mode=%d", address, buffer_size, orig_max_prot,
+    SYSLOG("DobbyCodePatch: [%p,%d] orig_max_prot=%d, orig_prot=%d, share_mode=%d", address, buffer_size, orig_max_prot,
            orig_prot, share_mode);
     if (orig_max_prot != 5 && share_mode != 2) {
       is_enable_remap = 1;
@@ -113,6 +118,16 @@ PUBLIC int DobbyCodePatch(void *address, uint8_t *buffer, uint32_t buffer_size) 
       DEBUG_LOG("code patch %p won't use remap", address);
     }
   }
+
+  //on dyld shared region the executable pages may be VM_PROT_READ
+  if (orig_prot == VM_PROT_READ) {
+    size_t dsclen = 0;
+    uint64_t dscaddr = (uint64_t)_dyld_get_shared_cache_range(&dsclen);
+    if ((uint64_t)address >= dscaddr && (uint64_t)address < (dscaddr + dsclen)) {
+      orig_prot |= VM_PROT_EXECUTE;
+    }
+  }
+
   // if (is_enable_remap == 1) {
   //   addr_t remap_dummy_page = 0;
   //   {
