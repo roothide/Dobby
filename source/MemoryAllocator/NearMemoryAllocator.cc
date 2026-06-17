@@ -108,6 +108,7 @@ MemBlock *NearMemoryAllocator::allocateNearBlockFromDefaultAllocator(uint32_t si
 }
 
 #include <sys/mman.h>
+#include <mach/mach.h>
 MemBlock *NearMemoryAllocator::allocateNearBlockFromUnusedRegion(uint32_t size, addr_t pos, size_t search_range,
                                                                  bool executable) {
 
@@ -141,7 +142,7 @@ MemBlock *NearMemoryAllocator::allocateNearBlockFromUnusedRegion(uint32_t size, 
     DEBUG_LOG("[near memory allocator] unused memory from unused region %p(%p), within pos: %p, serach_range: %p",
               unused_mem_start, size, pos, search_range);
 
-    void *result = mmap((void *)unused_mem_start, size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    void *result = mmap((void *)unused_mem_start, size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, VM_MAKE_TAG(255), 0);
     if (!result || result == MAP_FAILED)
       return 0;
     if (result != (void *)unused_mem_start) {
